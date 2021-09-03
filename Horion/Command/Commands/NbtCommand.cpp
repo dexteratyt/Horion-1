@@ -1,7 +1,8 @@
 #include "NbtCommand.h"
-#include "../../../Utils/Utils.h"
-#include "../../../Utils/Logger.h"
+
 #include "../../../SDK/Tag.h"
+#include "../../../Utils/Logger.h"
+#include "../../../Utils/Utils.h"
 
 NbtCommand::NbtCommand() : IMCCommand("nbt", "read and write NBT tags to/from your clipboard (You have to point at an entity/block entity)", "<read/write>") {
 	registerAlias("nbtraw");
@@ -9,11 +10,11 @@ NbtCommand::NbtCommand() : IMCCommand("nbt", "read and write NBT tags to/from yo
 
 NbtCommand::~NbtCommand() {
 }
-
+bool isGive = true;
 bool NbtCommand::execute(std::vector<std::string>* args) {
 	assertTrue(args->size() > 1);
 	bool isRaw = args->at(0) == "nbtraw";
-	if(isRaw){
+	if (isRaw) {
 		assertTrue(args->at(1) == "write");
 		assertTrue(args->size() > 2);
 	}
@@ -35,12 +36,12 @@ bool NbtCommand::execute(std::vector<std::string>* args) {
 			boy->write(build);
 			delete boy;
 		} else {
-			if (pointingStruct->entityPtr != nullptr) {
+			if (pointingStruct->getEntity() != nullptr) {
 				if (g_Data.getRakNetInstance()->serverIp.getTextLength() >= 1) {
 					clientMessageF("%sNBT tags for mobs only works in local world!", RED);
 					return true;
 				}
-				pointingStruct->entityPtr->save(tag.get());
+				pointingStruct->getEntity()->save(tag.get());
 				tag->write(build);
 			} else if (blockActor != nullptr) {
 				blockActor->save(tag.get());
@@ -59,7 +60,7 @@ bool NbtCommand::execute(std::vector<std::string>* args) {
 		clientMessageF(builtStr.c_str());
 	} else if ((args->at(1) == "write" || args->at(1) == "load") && item) {
 		std::string tag;
-		if(isRaw){
+		if (isRaw) {
 			std::ostringstream os;
 			for (int i = 2; i < args->size(); i++) {
 				if (i > 2)
@@ -68,7 +69,7 @@ bool NbtCommand::execute(std::vector<std::string>* args) {
 			}
 
 			tag = os.str();
-		}else{
+		} else {
 			tag = Utils::getClipboardText();
 		}
 
@@ -76,14 +77,20 @@ bool NbtCommand::execute(std::vector<std::string>* args) {
 			manager->addInventoryAction(C_InventoryAction(supplies->selectedHotbarSlot, item, nullptr));
 			manager->addInventoryAction(C_InventoryAction(0, nullptr, item, 507, 99999));
 		}
-
 		if (tag.size() > 1 && tag.front() == MojangsonToken::COMPOUND_START.getSymbol() && tag.back() == MojangsonToken::COMPOUND_END.getSymbol()) {
 			if (args->at(1) == "write")
 				item->setUserData(std::move(Mojangson::parseTag(tag)));
 			else if (args->at(1) == "load") {
 				item->fromTag(*Mojangson::parseTag(tag));
 				item->count = 64;
+				if (isGive) {
+					C_InventoryAction* firstAction = nullptr;
+					firstAction = new C_InventoryAction(0, item, nullptr, 507, 99999);
+					inv->addItemToFirstEmptySlot(item);
+				} else {
+				}
 			}
+
 		} else {
 			clientMessageF("%sInvalid NBT tag!", RED);
 			return true;
@@ -102,9 +109,10 @@ bool NbtCommand::execute(std::vector<std::string>* args) {
 	return true;
 }
 const char* NbtCommand::getUsage(const char* alias) {
-	if(strcmp(alias, "nbtraw") == 0){
+	if (strcmp(alias, "nbtraw") == 0) {
 		return "write <nbt>";
 	}
 
 	return IMCCommand::getUsage(alias);
 }
+//rip tudou :(
